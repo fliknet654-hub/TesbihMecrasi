@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tesbih Mağazası - Tam Sürüm</title>
+<style>
+  :root{
+    --primary:#757b1a;
+    --accent:#d9d9a5;
+    --bg:#fafafa;
+    --card:#ffffff;
+    --danger:#c0392b;
+    --text:#222;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:0;background:var(--bg);color:var(--text)}
+  header{background:var(--primary);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{font-weight:700;font-size:20px}
+  nav a{color:#fff;text-decoration:none;margin-left:12px;font-weight:600}
+  .container{width:94%;max-width:1100px;margin:20px auto}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .filters{display:flex;gap:10px;flex-wrap:wrap}
+  .filter-btn{background:var(--accent);padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700;border:none}
+  .actions{display:flex;gap:8px;align-items:center}
+  .btn{background:var(--primary);color:#fff;padding:9px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
+  .btn.secondary{background:#444}
+  .products{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+  .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:8px}
+  .card img{width:100%;height:180px;object-fit:cover;border-radius:10px}
+  .card h4{margin:6px 0;font-size:16px}
+  .card p.price{margin:0;font-weight:800}
+  .card .meta{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .card .meta small{color:#666}
+  .card .controls{display:flex;gap:8px;margin-top:8px}
+  .card button{flex:1;padding:8px;border-radius:8px;border:none;cursor:pointer}
+  .card button.cart{background:var(--primary);color:#fff}
+  .card button.edit{background:#555;color:#fff}
+  .card button.del{background:var(--danger);color:#fff}
+  /* Floating admin */
+  #adminBtn{position:fixed;right:18px;bottom:18px;background:#222;color:#fff;padding:10px 12px;border-radius:12px;cursor:pointer;z-index:60;border:none}
+  /* Panels */
+  .panel{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:92%;max-width:520px;background:#fff;padding:16px;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.18);z-index:70}
+  .panel h3{margin:0 0 10px 0}
+  .panel input,.panel textarea,.panel select{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #ddd}
+  .panel .row{display:flex;gap:8px}
+  .panel .row > *{flex:1}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:65}
+  /* Cart drawer */
+  #cartDrawer{position:fixed;right:0;top:0;height:100%;width:360px;background:#fff;box-shadow:-12px 0 40px rgba(0,0,0,0.12);transform:translateX(100%);transition:transform .28s;z-index:80;padding:16px;display:flex;flex-direction:column}
+  #cartDrawer.open{transform:translateX(0)}
+  .cart-item{display:flex;gap:10px;align-items:center;border-bottom:1px solid #eee;padding:8px 0}
+  .cart-item img{width:52px;height:52px;object-fit:cover;border-radius:8px}
+  .cart-item .meta{flex:1}
+  .cart-footer{margin-top:auto}
+  /* Theme settings */
+  .theme-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .color-swatch{width:36px;height:36px;border-radius:8px;border:1px solid #ddd;cursor:pointer}
+  /* Responsive */
+  @media(max-width:720px){
+    header{flex-direction:column;align-items:flex-start;padding:12px}
+    #cartDrawer{width:100%}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Tesbih Mağazası</div>
+  <nav>
+    <a href="#">Ana Sayfa</a><a href="#">Tesbihler</a><a href="#">İletişim</a>
+  </nav>
+</header>
+
+<main class="container">
+  <div class="topbar">
+    <div class="filters">
+      <button class="filter-btn" data-filter="tümü">Tümü</button>
+      <button class="filter-btn" data-filter="kehribar">Kehribar</button>
+      <button class="filter-btn" data-filter="gümüş">Gümüş</button>
+      <button class="filter-btn" data-filter="özel">Özel</button>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="openCart">Sepet (0)</button>
+      <button class="btn" id="openTheme">Tema</button>
+    </div>
+  </div>
+
+  <section class="products" id="products"></section>
+</main>
+
+<button id="adminBtn">⚙️ Yönetici</button>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- Admin panel (ürün ekle) -->
+<div class="panel" id="adminPanel" aria-hidden="true">
+  <h3>Ürün Ekle</h3>
+  <input id="p_name" placeholder="Ürün adı" />
+  <input id="p_img" placeholder="Resim URL" />
+  <div class="row">
+    <input id="p_price" placeholder="Fiyat (₺)" />
+    <input id="p_cat" placeholder="Kategori (kehribar,gümüş,özel)" />
+  </div>
+  <textarea id="p_desc" placeholder="Açıklama (opsiyonel)"></textarea>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn" id="addProductBtn">Ekle</button>
+    <button class="btn secondary" id="closeAdmin">Kapat</button>
+    <button class="btn" id="exportBtn">Yedekle (JSON)</button>
+  </div>
+  <small style="display:block;margin-top:8px;color:#666">Ürünler tarayıcıda saklanır (localStorage). İstersen yedek al ve indir.</small>
+</div>
+
+<!-- Edit panel -->
+<div class="panel" id="editPanel" aria-hidden="true">
+  <h3>Ürünü Düzenle</h3>
+  <input id="e_name" placeholder="Ürün adı" />
+  <input id="e_img" placeholder="Resim URL" />
+  <div class="row">
+    <input id="e_price" placeholder="Fiyat (₺)" />
+    <input id="e_cat" placeholder="Kategori" />
+  </div>
+  <textarea id="e_desc" placeholder="Açıklama"></textarea>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn" id="saveEditBtn">Kaydet</button>
+    <button class="btn secondary" id="closeEdit">Kapat</button>
+  </div>
+</div>
+
+<!-- Theme panel -->
+<div class="panel" id="themePanel" aria-hidden="true">
+  <h3>Tema Ayarları</h3>
+  <label>Birincil Renk (Butonlar)</label>
+  <input id="theme_primary" type="color" value="#757b1a" />
+  <label>Vurgu Rengi</label>
+  <input id="theme_accent" type="color" value="#d9d9a5" />
+  <label>Arkaplan</label>
+  <input id="theme_bg" type="color" value="#fafafa" />
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn" id="saveTheme">Kaydet</button>
+    <button class="btn secondary" id="closeTheme">Kapat</button>
+  </div>
+  <small style="display:block;margin-top:8px;color:#666">Tema ayarları tarayıcıda saklanır.</small>
+</div>
+
+<!-- Cart drawer -->
+<div id="cartDrawer" aria-hidden="true">
+  <h3>Sepet</h3>
+  <div id="cartItems" style="margin-top:8px"></div>
+  <div class="cart-footer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+      <strong>Toplam:</strong><strong id="cartTotal">0 ₺</strong>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn" id="checkoutBtn">Ödeme (Simülasyon)</button>
+      <button class="btn secondary" id="closeCart">Kapat</button>
+    </div>
+    <small style="display:block;margin-top:8px;color:#666">Gerçek ödeme entegrasyonu yok — istersen ekleyebilirim.</small>
+  </div>
+</div>
+
+<script>
+/* ------- Basit veri yapısı ve localStorage ------- */
+const STORAGE_KEY = 'tesbih_products_v1';
+const THEME_KEY = 'tesbih_theme_v1';
+let products = [];
+let cart = {};
+
+/* Örnek ürünler (ilk yükleme için) */
+const sample = [
+  {id:genId(),name:'Premium Kehribar Tesbih',img:'https://images.unsplash.com/photo-1599943389327-9c7a5a2b9b0e?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.0.3&s=1',price:420,cat:'kehribar',desc:'Özel kutusunda premium kehribar.'},
+  {id:genId(),name:'925 Gümüş Püsküllü Tesbih',img:'https://images.unsplash.com/photo-1519750157634-2f9f0b1d4f7a?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.0.3&s=2',price:350,cat:'gümüş',desc:'925 ayar gümüş püsküllü şık tasarım.'},
+  {id:genId(),name:'Kişiye Özel Hatıra Tesbih',img:'https://images.unsplash.com/photo-1605902711622-cfb43c44367f?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.0.3&s=3',price:260,cat:'özel',desc:'İçinde hatıra için saç teli koyulur.'}
+];
+
+function genId(){ return 'p_'+Math.random().toString(36).slice(2,9); }
+
+function loadData(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw){ products = JSON.parse(raw); }
+  else { products = sample; saveData(); }
+  const themeRaw = localStorage.getItem(THEME_KEY);
+  if(themeRaw) applyTheme(JSON.parse(themeRaw));
+}
+
+function saveData(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(products)); }
+
+/* ------- Render ürünler ------- */
+const productsEl = document.getElementById('products');
+function renderProducts(filter='tümü'){
+  productsEl.innerHTML='';
+  products.filter(p=> filter==='tümü' ? true : p.cat.toLowerCase().includes(filter) ).forEach(p=>{
+    const div = document.createElement('div');
+    div.className='card';
+    div.dataset.id = p.id;
+    div.dataset.cat = p.cat;
+    div.innerHTML = `
+      <img src="${p.img}" alt="${escapeHtml(p.name)}" />
+      <h4>${escapeHtml(p.name)}</h4>
+      <p class="price">${p.price} ₺</p>
+      <small>${escapeHtml(p.desc||'')}</small>
+      <div class="controls">
+        <button class="cart" onclick="addToCart('${p.id}')">Sepete Ekle</button>
+        <button class="edit" onclick="openEdit('${p.id}')">Düzenle</button>
+        <button class="del" onclick="deleteProduct('${p.id}')">Sil</button>
+      </div>
+    `;
+    productsEl.appendChild(div);
+  });
+}
+
+/* ------- Admin: ekle / sil / düzenle ------- */
+document.getElementById('adminBtn').addEventListener('click',()=>openAdmin());
+document.getElementById('closeAdmin').addEventListener('click',()=>closeAdmin());
+document.getElementById('addProductBtn').addEventListener('click',()=>{
+  const name = document.getElementById('p_name').value.trim();
+  const img = document.getElementById('p_img').value.trim();
+  const price = parseFloat(document.getElementById('p_price').value.trim());
+  const cat = document.getElementById('p_cat').value.trim() || 'özel';
+  const desc = document.getElementById('p_desc').value.trim();
+  if(!name||!img||isNaN(price)) return alert('Lütfen adı, resim URL\'si ve fiyatı girin.');
+  products.unshift({id:genId(),name,img,price,cat,desc});
+  saveData(); renderProducts(currentFilter); clearAdminInputs(); closeAdmin();
+});
+
+function openAdmin(){ showPanel('adminPanel'); }
+function closeAdmin(){ hidePanel('adminPanel'); }
+function clearAdminInputs(){ document.getElementById('p_name').value='';document.getElementById('p_img').value='';document.getElementById('p_price').value='';document.getElementById('p_cat').value='';document.getElementById('p_desc').value=''; }
+
+function deleteProduct(id){
+  if(!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
+  products = products.filter(p=>p.id!==id); saveData(); renderProducts(currentFilter); updateCartUI();
+}
+
+/* Edit */
+let editingId = null;
+function openEdit(id){
+  const p = products.find(x=>x.id===id);
+  if(!p) return alert('Ürün bulunamadı');
+  editingId = id;
+  document.getElementById('e_name').value = p.name;
+  document.getElementById('e_img').value = p.img;
+  document.getElementById('e_price').value = p.price;
+  document.getElementById('e_cat').value = p.cat;
+  document.getElementById('e_desc').value = p.desc||'';
+  showPanel('editPanel');
+}
+document.getElementById('closeEdit').addEventListener('click',()=>hidePanel('editPanel'));
+document.getElementById('saveEditBtn').addEventListener('click',()=>{
+  const p = products.find(x=>x.id===editingId);
+  if(!p) return;
+  p.name = document.getElementById('e_name').value.trim();
+  p.img = document.getElementById('e_img').value.trim();
+  p.price = parseFloat(document.getElementById('e_price').value.trim())||0;
+  p.cat = document.getElementById('e_cat').value.trim()||'özel';
+  p.desc = document.getElementById('e_desc').value.trim();
+  saveData(); renderProducts(currentFilter); hidePanel('editPanel');
+});
+
+/* Export JSON backup */
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const data = JSON.stringify(products, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'tesbih_products_backup.json';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+
+/* ------- Panels helpers ------- */
+const overlay = document.getElementById('overlay');
+function showPanel(id){ document.getElementById(id).style.display='block'; overlay.style.display='block'; overlay.onclick = ()=>{ hidePanel(id); } }
+function hidePanel(id){ document.getElementById(id).style.display='none'; overlay.style.display='none'; overlay.onclick=null; }
+
+/* ------- Filters ------- */
+let currentFilter = 'tümü';
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    currentFilter = btn.dataset.filter;
+    renderProducts(currentFilter);
+  });
+});
+
+/* ------- Cart ------- */
+document.getElementById('openCart').addEventListener('click',()=>{ document.getElementById('cartDrawer').classList.add('open'); updateCartUI(); });
+document.getElementById('closeCart').addEventListener('click',()=>{ document.getElementById('cartDrawer').classList.remove('open'); });
+document.getElementById('checkoutBtn').addEventListener('click',()=>{
+  if(Object.keys(cart).length===0) return alert('Sepet boş!');
+  alert('Ödeme simülasyonu: siparişiniz alındı. (Gerçek entegrasyon yok)');
+  cart = {}; saveCart(); updateCartUI(); document.getElementById('cartDrawer').classList.remove('open');
+});
+
+function addToCart(id){
+  cart[id] = cart[id] ? cart[id]+1 : 1;
+  saveCart(); updateCartUI();
+}
+
+/* Cart persistence */
+function saveCart(){ localStorage.setItem('tesbih_cart_v1', JSON.stringify(cart)); }
+function loadCart(){ const raw = localStorage.getItem('tesbih_cart_v1'); cart = raw? JSON.parse(raw):{}; updateCartUI(); }
+
+function updateCartUI(){
+  const cartBtn = document.getElementById('openCart');
+  const count = Object.values(cart).reduce((s,n)=>s+n,0);
+  cartBtn.innerText = `Sepet (${count})`;
+  const list = document.getElementById('cartItems');
+  list.innerHTML='';
+  let total = 0;
+  Object.keys(cart).forEach(id=>{
+    const p = products.find(x=>x.id===id);
+    if(!p) return;
+    const qty = cart[id];
+    total += p.price * qty;
+    const div = document.createElement('div'); div.className='cart-item';
+    div.innerHTML = `
+      <img src="${p.img}" />
+      <div class="meta">
+        <div style="font-weight:700">${escapeHtml(p.name)}</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <button onclick="decQty('${id}')" style="padding:6px;border-radius:6px">-</button>
+          <div>${qty}</div>
+          <button onclick="incQty('${id}')" style="padding:6px;border-radius:6px">+</button>
+        </div>
+      </div>
+      <div style="font-weight:800">${p.price * qty} ₺</div>
+    `;
+    list.appendChild(div);
+  });
+  document.getElementById('cartTotal').innerText = total + ' ₺';
+}
+
+function incQty(id){ cart[id] = (cart[id]||0)+1; saveCart(); updateCartUI(); }
+function decQty(id){ if(!cart[id]) return; cart[id]--; if(cart[id]<=0) delete cart[id]; saveCart(); updateCartUI(); }
+
+/* ------- Theme settings ------- */
+document.getElementById('openTheme').addEventListener('click',()=>showPanel('themePanel'));
+document.getElementById('closeTheme').addEventListener('click',()=>hidePanel('themePanel'));
+document.getElementById('saveTheme').addEventListener('click',()=>{
+  const theme = {
+    primary: document.getElementById('theme_primary').value,
+    accent: document.getElementById('theme_accent').value,
+    bg: document.getElementById('theme_bg').value
+  };
+  localStorage.setItem(THEME_KEY, JSON.stringify(theme));
+  applyTheme(theme);
+  hidePanel('themePanel');
+});
+
+function applyTheme(theme){
+  if(!theme) return;
+  document.documentElement.style.setProperty('--primary', theme.primary);
+  document.documentElement.style.setProperty('--accent', theme.accent);
+  document.documentElement.style.setProperty('--bg', theme.bg);
+  // store color inputs if panel exists
+  const el1 = document.getElementById('theme_primary');
+  if(el1) el1.value = theme.primary;
+  const el2 = document.getElementById('theme_accent');
+  if(el2) el2.value = theme.accent;
+  const el3 = document.getElementById('theme_bg');
+  if(el3) el3.value = theme.bg;
+}
+
+/* ------- Utils ------- */
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',\"'\":\"&#39;\"}[m] }); }
+
+/* ------- Simple init ------- */
+loadData();
+renderProducts();
+loadCart();
+
+/* ------- Backup import helper (drag & drop) ------- */
+// Allow dropping a JSON file to import products backup
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{
+  e.preventDefault();
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(!f) return;
+  if(!confirm('Dosya içindeki ürünleri yüklemek istiyor musunuz? Var olan veriler değişecek.')) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const arr = JSON.parse(reader.result);
+      if(!Array.isArray(arr)) throw 'invalid';
+      products = arr; saveData(); renderProducts(); alert('Ürünler yüklendi.');
+    }catch(err){ alert('Geçersiz dosya.'); }
+  };
+  reader.readAsText(f);
+});
+
+</script>
+</body>
+</html>
